@@ -17,7 +17,12 @@ import { JWT } from "google-auth-library";
 // 環境變數需在 Vercel 的 Environment Variables 中設定
 const SHEET_ID = import.meta.env.GOOGLE_SHEET_ID;
 const SERVICE_ACCOUNT_EMAIL = import.meta.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const PRIVATE_KEY = import.meta.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+// 更穩健的私鑰處理（移除多餘引號、確保換行正確）
+let PRIVATE_KEY = import.meta.env.GOOGLE_PRIVATE_KEY || "";
+if (PRIVATE_KEY) {
+  PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, "\n").replace(/^"|"$/g, "").trim();
+}
 
 let docPromise = null;
 

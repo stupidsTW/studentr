@@ -169,8 +169,16 @@ export async function getResponseSheet() {
 export async function addResponse(data) {
   const sheet = await getResponseSheet();
   const rows = await sheet.getRows();
-  const newId =
-    rows.length > 0 ? String(Number(rows[rows.length - 1].id) + 1) : "1";
+
+  // 使用和 addProgress 一樣的穩健方式計算新 ID
+  let maxId = 0;
+  for (const r of rows) {
+    const obj = rowToObject(r, RESPONSE_HEADERS);
+    const n = Number(obj.id);
+    if (!isNaN(n) && n > maxId) maxId = n;
+  }
+  const newId = String(maxId + 1);
+
   await sheet.addRow({
     id: newId,
     progress_id: data.progress_id,

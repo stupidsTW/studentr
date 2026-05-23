@@ -1,0 +1,23 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="研究生進度回報系統 - 首頁">
+  <div class="card" style="text-align:center;">
+    <h1 style="font-size:2rem; margin-bottom:1rem;">📚 研究生進度回報系統</h1>
+    <p style="font-size:1.1rem; color:#4a5568; max-width:600px; margin:0 auto 2rem;">
+      讓研究生回報研究進度，老師登記互動過程，並以 Google Sheet 作為資料庫。
+    </p>
+    <div style="display:flex; flex-wrap:wrap; gap:1rem; justify-content:center;">
+      <a href="/progress" style="flex:1; min-width:200px; background:#e94560; color:#fff; padding:1.5rem; border-radius:12px; text-decoration:none; font-weight:700; font-size:1.1rem; transition:transform 0.2s;">
+        🎓 研究生登錄進度
+      </a>
+      <a href="/response" style="flex:1; min-width:200px; background:#16213e; color:#fff; padding:1.5rem; border-radius:12px; text-decoration:none; font-weight:700; font-size:1.1rem; transition:transform 0.2s;">
+        👨‍🏫 老師回應紀錄
+      </a>
+      <a href="/dashboard" style="flex:1; min-width:200px; background:#0f3460; color:#fff; padding:1.5rem; border-radius:12px; text-decoration:none; font-weight:700; font-size:1.1rem; transition:transform 0.2s;">
+        📊 研究進度儀錶板
+      </a>
+    </div>
+  </div>
+</Layout>

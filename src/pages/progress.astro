@@ -1,0 +1,117 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="研究生登錄進度">
+  <div class="card">
+    <h2>📝 研究生登錄進度</h2>
+    <form id="progressForm">
+      <label for="student_name">研究生姓名</label>
+      <select id="student_name" required>
+        <option value="">— 請選擇 —</option>
+        <option value="又蓁">又蓁</option>
+        <option value="信杰">信杰</option>
+        <option value="靜芳">靜芳</option>
+        <option value="詠幃">詠幃</option>
+        <option value="柏洋">柏洋</option>
+        <option value="家瑜">家瑜</option>
+        <option value="新惠">新惠</option>
+        <option value="柏盛">柏盛</option>
+      </select>
+
+      <label for="date">日期（自動填入）</label>
+      <input type="date" id="date" readonly />
+
+      <label for="current_summary">目前成果概述</label>
+      <textarea id="current_summary" placeholder="請描述目前的研究成果..." required></textarea>
+
+      <label>目前問題分類（可多選）</label>
+
+      <!-- 第一部分：研究設計與基礎框架 -->
+      <div class="problem-section">
+        <div class="section-title">第一部分：研究設計與基礎框架</div>
+        <div class="checkbox-group">
+          <label><input type="checkbox" value="研究問題界定" /> 研究問題界定（研究題目模糊、範圍過大或過小）</label>
+          <label><input type="checkbox" value="文獻回顧與論述建構" /> 文獻回顧與論述建構（找不到切入點、文獻與現實脫節）</label>
+          <label><input type="checkbox" value="理論框架應用" /> 理論框架應用（理論無法有效解釋田野現象）</label>
+          <label><input type="checkbox" value="研究方法與田野策略" /> 研究方法與田野策略（資料收集受阻、訪談與參與觀察的困境）</label>
+        </div>
+      </div>
+
+      <!-- 第二部分：論文寫作與視覺轉化 -->
+      <div class="problem-section">
+        <div class="section-title">第二部分：論文寫作與視覺轉化</div>
+        <div class="checkbox-group">
+          <label><input type="checkbox" value="論文寫作邏輯與敘事主線" /> 論文寫作邏輯與敘事主線（資料堆砌、缺乏核心論述）</label>
+          <label><input type="checkbox" value="視覺論證與圖文整合" /> 視覺論證與圖文整合（如何將測繪、地圖、攝影轉化為有效的論證素材）</label>
+          <label><input type="checkbox" value="跨學科術語轉譯與整合" /> 跨學科術語轉譯與整合（將專業術語轉換為通順語言）</label>
+          <label><input type="checkbox" value="微觀案例與宏觀理論連結" /> 微觀案例與宏觀理論連結（個案研究缺乏理論高度）</label>
+        </div>
+      </div>
+
+      <!-- 第三部分：倫理與實務挑戰 -->
+      <div class="problem-section">
+        <div class="section-title">第三部分：倫理與實務挑戰</div>
+        <div class="checkbox-group">
+          <label><input type="checkbox" value="研究倫理與情感涉入" /> 研究倫理與情感涉入（處理敏感隱私、研究者立場與主觀情感界線）</label>
+          <label><input type="checkbox" value="研究倫理（一般性）" /> 研究倫理（一般性）（如：受訪者同意、檔案公開限制）</label>
+          <label><input type="checkbox" value="其他" /> 其他</label>
+        </div>
+      </div>
+
+      <label for="problem_summary">目前問題概述</label>
+      <textarea id="problem_summary" placeholder="請描述目前遇到的困難..." required></textarea>
+
+      <label for="word_count">目前累計字數</label>
+      <input type="number" id="word_count" min="0" placeholder="請輸入目前論文已撰寫的字數" required />
+
+      <button type="submit">📤 提交進度</button>
+      <div id="message"></div>
+    </form>
+  </div>
+
+  <script>
+    // 自動填入今日日期
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date').value = today;
+
+    // 提交表單
+    document.getElementById('progressForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      const msgEl = document.getElementById('message');
+
+      const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked');
+      const categories = Array.from(checkboxes).map(cb => cb.value).join(', ');
+
+      const payload = {
+        student_name: document.getElementById('student_name').value,
+        date: document.getElementById('date').value,
+        current_summary: document.getElementById('current_summary').value,
+        problem_categories: categories,
+        problem_summary: document.getElementById('problem_summary').value,
+        word_count: Number(document.getElementById('word_count').value),
+      };
+
+      try {
+        const res = await fetch('/api/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await res.json();
+        if (res.ok) {
+          msgEl.innerHTML = '<p class="message success">✅ 進度已成功提交！</p>';
+          e.target.reset();
+          document.getElementById('date').value = today;
+        } else {
+          msgEl.innerHTML = `<p class="message error">❌ ${result.error}</p>`;
+        }
+      } catch(e) {
+        msgEl.innerHTML = '<p class="message error">❌ 提交失敗，請確認網路連線</p>';
+      }
+      btn.disabled = false;
+    });
+  </script>
+</Layout>

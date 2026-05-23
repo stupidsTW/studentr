@@ -150,7 +150,9 @@ import Layout from '../layouts/Layout.astro';
         if (!Array.isArray(data)) data = [];
         if (!Array.isArray(progressData)) progressData = [];
         const progressMap = {};
-        progressData.forEach(p => { progressMap[p.id] = p; });
+        progressData.forEach(p => {
+          progressMap[String(p.id)] = p;
+        });
 
         if (!data.length) {
           el.innerHTML = '<p style="color:#718096;">尚無回應紀錄</p>';
@@ -159,7 +161,7 @@ import Layout from '../layouts/Layout.astro';
         el.innerHTML = `<table>
           <thead><tr><th>日期</th><th>對應學生</th><th>回應內容</th></tr></thead>
           <tbody>${data.slice(0,20).map(r => {
-            const p = progressMap[r.progress_id];
+            const p = progressMap[String(r.progress_id)];
             const student = p ? p.student_name : '（已刪除）';
             const content = r.response_content || '';
             return `<tr>

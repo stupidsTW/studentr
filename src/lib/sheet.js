@@ -26,6 +26,12 @@ if (PRIVATE_KEY) {
 
 let docPromise = null;
 
+// ====== In-memory cache (降低 Google Sheets Read requests) ======
+// Vercel/Serverless 下 cache 只對同一個 instance 生效，但已能顯著降低爆量。
+const SHEET_CACHE_TTL_MS = Number(import.meta.env.SHEET_CACHE_TTL_MS) || 30_000;
+const progressCache = { ts: 0, data: null, promise: null };
+const responsesCache = { ts: 0, data: null, promise: null };
+
 /** 初始化並回傳 Google Spreadsheet 連線（安全的 Promise 單例） */
 async function getDoc() {
   if (docPromise) return docPromise;
@@ -119,26 +125,51 @@ export async function addProgress(data) {
     problem_summary: data.problem_summary,
     word_count: String(data.word_count),
   });
+
+  // 寫入後使 progress cache 失效
+  progressCache.ts = 0;
+  progressCache.data = null;
+
   return newId;
 }
 
 /** 取得所有研究生進度（依日期降序） */
 export async function getAllProgress() {
-  const sheet = await getProgressSheet();
-  const rows = await sheet.getRows();
-  return rows
-    .map((r) => rowToObject(r, PROGRESS_HEADERS))
-    .filter((r) => r.student_name && r.student_name.trim() !== "")
-    .map((r) => ({
-      id: r.id || "",
-      student_name: r.student_name,
-      date: r.date || "",
-      current_summary: r.current_summary || "",
-      problem_categories: r.problem_categories || "",
-      problem_summary: r.problem_summary || "",
-      word_count: Number(r.word_count) || 0,
-    }))
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const now = Date.now();
+  if (progressCache.data && now - progressCache.ts < SHEET_CACHE_TTL_MS) {
+    return progressCache.data;
+  }
+  if (progressCache.promise) {
+    return progressCache.promise;
+  }
+
+  progressCache.promise = (async () => {
+    const sheet = await getProgressSheet();
+    const rows = await sheet.getRows();
+    const data = rows
+      .map((r) => rowToObject(r, PROGRESS_HEADERS))
+      .filter((r) => r.student_name && r.student_name.trim() !== "")
+      .map((r) => ({
+        id: r.id || "",
+        student_name: r.student_name,
+        date: r.date || "",
+        current_summary: r.current_summary || "",
+        problem_categories: r.problem_categories || "",
+        problem_summary: r.problem_summary || "",
+        word_count: Number(r.word_count) || 0,
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    return data;
+  })();
+
+  try {
+    const data = await progressCache.promise;
+    progressCache.data = data;
+    progressCache.ts = Date.now();
+    return data;
+  } finally {
+    progressCache.promise = null;
+  }
 }
 
 /** 依 id 取得單筆進度 */
@@ -185,23 +216,48 @@ export async function addResponse(data) {
     response_date: data.response_date,
     response_content: data.response_content,
   });
+
+  // 寫入後使 responses cache 失效
+  responsesCache.ts = 0;
+  responsesCache.data = null;
+
   return newId;
 }
 
 /** 取得所有回應 */
 export async function getAllResponses() {
-  const sheet = await getResponseSheet();
-  const rows = await sheet.getRows();
-  return rows
-    .map((r) => rowToObject(r, RESPONSE_HEADERS))
-    .filter((r) => r.progress_id && r.progress_id.trim() !== "")
-    .map((r) => ({
-      id: r.id,
-      progress_id: r.progress_id,
-      response_date: r.response_date,
-      response_content: r.response_content,
-    }))
-    .sort((a, b) => new Date(b.response_date) - new Date(a.response_date));
+  const now = Date.now();
+  if (responsesCache.data && now - responsesCache.ts < SHEET_CACHE_TTL_MS) {
+    return responsesCache.data;
+  }
+  if (responsesCache.promise) {
+    return responsesCache.promise;
+  }
+
+  responsesCache.promise = (async () => {
+    const sheet = await getResponseSheet();
+    const rows = await sheet.getRows();
+    const data = rows
+      .map((r) => rowToObject(r, RESPONSE_HEADERS))
+      .filter((r) => r.progress_id && r.progress_id.trim() !== "")
+      .map((r) => ({
+        id: r.id,
+        progress_id: r.progress_id,
+        response_date: r.response_date,
+        response_content: r.response_content,
+      }))
+      .sort((a, b) => new Date(b.response_date) - new Date(a.response_date));
+    return data;
+  })();
+
+  try {
+    const data = await responsesCache.promise;
+    responsesCache.data = data;
+    responsesCache.ts = Date.now();
+    return data;
+  } finally {
+    responsesCache.promise = null;
+  }
 }
 
 /** 依 progress_id 取得回應 */
@@ -213,7 +269,18 @@ export async function getResponsesByProgressId(progressId) {
 // ===================== 儀錶板資料 =====================
 /** 取得每個研究生最近5筆進度（含回應） */
 export async function getDashboardData() {
-  const allProgress = await getAllProgress();
+  const [allProgress, allResponses] = await Promise.all([
+    getAllProgress(),
+    getAllResponses(),
+  ]);
+
+  // 一次載入所有 responses，避免在迴圈中反覆 getAllResponses()
+  const responsesByProgressId = {};
+  for (const r of allResponses) {
+    const key = String(r.progress_id);
+    if (!responsesByProgressId[key]) responsesByProgressId[key] = [];
+    responsesByProgressId[key].push(r);
+  }
 
   // 按學生分組
   const grouped = {};
@@ -229,10 +296,9 @@ export async function getDashboardData() {
 
     const items = [];
     for (const p of latest) {
-      const responses = await getResponsesByProgressId(p.id);
       items.push({
         ...p,
-        responses,
+        responses: responsesByProgressId[String(p.id)] || [],
       });
     }
 
